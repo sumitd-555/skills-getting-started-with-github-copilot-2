@@ -4,6 +4,34 @@ document.addEventListener("DOMContentLoaded", () => {
   const signupForm = document.getElementById("signup-form");
   const messageDiv = document.getElementById("message");
 
+  async function unregisterParticipant(activity, email) {
+    try {
+      const response = await fetch(
+        `/activities/${encodeURIComponent(activity)}/participants?email=${encodeURIComponent(email)}`,
+        { method: "DELETE" }
+      );
+      const result = await response.json();
+
+      if (response.ok) {
+        messageDiv.textContent = result.message;
+        messageDiv.className = "success";
+        fetchActivities();
+      } else {
+        messageDiv.textContent = result.detail || "Unable to remove participant.";
+        messageDiv.className = "error";
+      }
+    } catch (error) {
+      messageDiv.textContent = "Failed to unregister participant. Please try again.";
+      messageDiv.className = "error";
+      console.error("Error unregistering participant:", error);
+    }
+
+    messageDiv.classList.remove("hidden");
+    setTimeout(() => {
+      messageDiv.classList.add("hidden");
+    }, 5000);
+  }
+
   // Function to fetch activities from API
   async function fetchActivities() {
     try {
@@ -20,14 +48,40 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const spotsLeft = details.max_participants - details.participants.length;
 
+        const participantsHtml = details.participants.length
+          ? `<div class="participants-section">
+              <p><strong>Participants:</strong></p>
+              <ul class="participants-list">
+                ${details.participants
+                  .map(
+                    (participant) =>
+                      `<li class="participant-item">
+                        <span>${participant}</span>
+                        <button type="button" class="remove-participant-button" data-activity="${name}" data-email="${participant}">×</button>
+                      </li>`
+                  )
+                  .join("")}
+              </ul>
+            </div>`
+          : `<div class="participants-section no-participants">
+              <p><strong>Participants:</strong> No students have signed up yet.</p>
+            </div>`;
+
         activityCard.innerHTML = `
           <h4>${name}</h4>
           <p>${details.description}</p>
           <p><strong>Schedule:</strong> ${details.schedule}</p>
           <p><strong>Availability:</strong> ${spotsLeft} spots left</p>
+          ${participantsHtml}
         `;
 
         activitiesList.appendChild(activityCard);
+
+        activityCard.querySelectorAll(".remove-participant-button").forEach((button) => {
+          button.addEventListener("click", () => {
+            unregisterParticipant(button.dataset.activity, button.dataset.email);
+          });
+        });
 
         // Add option to select dropdown
         const option = document.createElement("option");
